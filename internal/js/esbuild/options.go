@@ -252,6 +252,10 @@ func (opts *Options) compile() (err error) {
 		loader = api.LoaderTSX
 	case media.Builtin.JSXType.SubType:
 		loader = api.LoaderJSX
+	case media.Builtin.CSSType.SubType:
+		// TODO: Other option validation should take loader into account.
+		// If it's a CSS loader then output format esm/cjs doesn't make sense, etc.
+		loader = api.LoaderCSS
 	default:
 		err = fmt.Errorf("unsupported Media Type: %q", opts.MediaType)
 		return

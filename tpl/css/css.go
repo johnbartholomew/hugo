@@ -15,6 +15,7 @@ import (
 	"github.com/gohugoio/hugo/resources/resource"
 	"github.com/gohugoio/hugo/resources/resource_transformers/babel"
 	"github.com/gohugoio/hugo/resources/resource_transformers/cssjs"
+	jstransform "github.com/gohugoio/hugo/resources/resource_transformers/js"
 	"github.com/gohugoio/hugo/resources/resource_transformers/tocss/dartsass"
 	"github.com/gohugoio/hugo/resources/resource_transformers/tocss/sass"
 	"github.com/gohugoio/hugo/resources/resource_transformers/tocss/scss"
@@ -32,6 +33,7 @@ type Namespace struct {
 	postcssClient     *cssjs.PostCSSClient
 	tailwindcssClient *cssjs.TailwindCSSClient
 	babelClient       *babel.Client
+	jsTransformClient *jstransform.Client
 
 	// The Dart Client requires a os/exec process, so  only
 	// create it if we really need it.
@@ -78,6 +80,35 @@ func (ns *Namespace) TailwindCSS(args ...any) (resource.Resource, error) {
 	}
 
 	return ns.tailwindcssClient.Process(r, m)
+}
+
+func (ns *Namespace) ESBuild(args ...any) (resource.Resource, error) {
+	// TODO: This is pretty much a direct copy of js.Build.
+	// Might be nice to reduce duplication somehow or to make this more specific to CSS
+	// (e.g., checking input media type here, configuring ESBuild option defaults more
+	// appropriately to CSS, etc)
+	var (
+		r          resources.ResourceTransformer
+		m          map[string]any
+		targetPath string
+		err        error
+		ok         bool
+	)
+
+	r, targetPath, ok = resourcehelpers.ResolveIfFirstArgIsString(args)
+
+	if !ok {
+		r, m, err = resourcehelpers.ResolveArgs(args)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if targetPath != "" {
+		m = map[string]any{"targetPath": targetPath}
+	}
+
+	return ns.jsTransformClient.Process(r, m)
 }
 
 // Sass processes the given Resource with SASS.
@@ -159,6 +190,7 @@ func init() {
 			postcssClient:     cssjs.NewPostCSSClient(d.ResourceSpec),
 			tailwindcssClient: cssjs.NewTailwindCSSClient(d.ResourceSpec),
 			babelClient:       babel.New(d.ResourceSpec),
+			jsTransformClient: jstransform.New(d.BaseFs.Assets, d.ResourceSpec),
 		}
 
 		ns := &internal.TemplateFuncsNamespace{
